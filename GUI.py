@@ -1,51 +1,99 @@
-import tkinter as tk
-import pandas as pd
+import requests
 import matplotlib.pyplot as plt
-import sqlite3
+import matplotlib.dates as mdates
+from datetime import datetime, timedelta
+import tkinter as tk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-# connect to the SQLite database
-conn = sqlite3.connect('co2_measurements_IOM.db')
 
-# create a cursor object to execute SQL queries
-cur = conn.cursor()
+def fetch_data():
+    # Get the data from the API
+    response = requests.get("http://192.168.1.143:5000/measurements")
+    data = response.json()
 
-# select all data from the table
-cur.execute("SELECT * FROM measurements")
+    # Process the data
+    now = datetime.now()
+    cutoff_time = now - timedelta(hours=12)
 
-# fetch all data as a list of tuples
-data = cur.fetchall()
+    data = [d for d in data if datetime.strptime(d['datetime'], "%Y-%m-%d %H:%M:%S") >= cutoff_time]
 
-# convert the list of tuples to a pandas DataFrame
-df = pd.DataFrame(data, columns=['Date Time', 'CO2 (ppm)', 'Temperature (C)', 'Relative Humidity (%)'])
+    datetimes = [datetime.strptime(d['datetime'], "%Y-%m-%d %H:%M:%S") for d in data]
+    co2 = [d['co2'] for d in data]
+    temperature = [d['temperature'] for d in data]
+    humidity = [d['humidity'] for d in data]
 
-# convert the 'Date Time' column to a datetime object
-df['Date Time'] = pd.to_datetime(df['Date Time'])
+    return datetimes, co2, temperature, humidity
 
+
+def update_data():
+    datetimes, co2, temperature, humidity = fetch_data()
+
+    # Update plots
+    for ax in axs:
+        ax.clear()
+
+    axs[0].plot(datetimes, co2, label='CO2', color='r')
+    axs[1].plot(datetimes, temperature, label='Temperature', color='g')
+    axs[2].plot(datetimes, humidity, label='Relative Humidity', color='b')
+
+    # Update side panel values
+    current_co2.config(text=f"Current CO2: {round(co2[-1], 1)} ppm")
+    current_temp.config(text=f"Current Temperature: {round(temperature[-1], 1)} °C")
+    current_humidity.config(text=f"Current Humidity: {round(humidity[-1], 1)} %")
+
+    # Redraw the canvas
+    canvas.draw()
+
+    # Schedule the next update
+    root.after(2000, update_data)
+
+
+# Set up the plot
+fig, axs = plt.subplots(3, 1, figsize=(10, 15), sharex=True)
+plt.subplots_adjust(hspace=0.3)
+
+# Configure the date formatter
+date_fmt = mdates.DateFormatter('%Y-%m-%d %H:%M:%S')
+
+# Set axis labels and grid
+for ax in axs:
+    ax.grid()
+    ax.xaxis.set_major_formatter(date_fmt)
+    plt.setp(ax.get_xticklabels(), rotation=30, ha='right')
+
+axs[0].set_title('CO2 vs DateTime')
+axs[0].set_ylabel('CO2 (ppm)')
+axs[1].set_title('Temperature vs DateTime')
+axs[1].set_ylabel('Temperature (°C)')
+axs[2].set_title('Relative Humidity vs DateTime')
+axs[2].set_ylabel('Relative Humidity (%)')
+
+# Create tkinter window
 root = tk.Tk()
+root.title("Sensor Data")
 
-figure1 = plt.Figure(figsize=(6, 5), dpi=100)
-ax1 = figure1.add_subplot(111)
-line1 = FigureCanvasTkAgg(figure1, root)
-line1.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH)
-df_co2 = df[['Date Time', 'CO2 (ppm)']].set_index('Date Time')
-df_co2.plot(kind='line', legend=True, ax=ax1, color='b', fontsize=10)
-ax1.set_title('Date Time Vs. CO2 (ppm)')
+# Create the matplotlib canvas
+canvas = FigureCanvasTkAgg(fig, master=root)
+canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
 
-figure2 = plt.Figure(figsize=(5, 4), dpi=100)
-ax2 = figure2.add_subplot(111)
-line2 = FigureCanvasTkAgg(figure2, root)
-line2.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH)
-df_temp = df[['Date Time', 'Temperature (C)']].set_index('Date Time')
-df_temp.plot(kind='line', legend=True, ax=ax2, color='r', fontsize=10)
-ax2.set_title('Date Time Vs. Temperature (C)')
+# Create side panel
+side_panel = tk.Frame(root)
+side_panel.pack(side=tk.RIGHT, fill=tk.BOTH)
 
-figure3 = plt.Figure(figsize=(5, 4), dpi=100)
-ax3 = figure3.add_subplot(111)
-line3 = FigureCanvasTkAgg(figure3, root)
-line3.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH)
-df_humidity = df[['Date Time', 'Relative Humidity (%)']].set_index('Date Time')
-df_humidity.plot(kind='line', legend=True, ax=ax3, color='g', fontsize=10)
-ax3.set_title('Date Time Vs. Relative Humidity (%)')
+# Display current values
+current_co2 = tk.Label(side_panel, font=("Arial", 14))
+current_co2.pack(pady=10)
+current_temp = tk.Label(side_panel, font=("Arial", 14))
+current_temp.pack(pady=10)
+current_humidity = tk.Label(side_panel, font=("Arial", 14))
+current_humidity.pack(pady=10)
 
-root.mainloop()
+# Add a quit button to the tkinter window
+quit_button = tk.Button(master=root, text="Quit", command=root.quit)
+quit_button.pack(side=tk.BOTTOM)
+
+# Fetch initial data and start the update loop
+update_data()
+
+# Run the tkinter main loop
+tk.mainloop()
