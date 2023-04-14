@@ -21,10 +21,17 @@ class Measurements(Resource):
         measurements_list = []
         for row in data:
             measurements_list.append({'datetime': row[0], 'co2': row[1], 'temperature': row[2], 'humidity': row[3]})
-        return jsonify(measurements_list)
+
+        lft_data = query_db("SELECT * FROM lft")
+        lft_list = []
+        for row in lft_data:
+            lft_list.append(
+                {'id': row[0], 'qr_code': row[1], 'outcome': row[2], 'control_magenta': row[3], 'test_magenta': row[4]})
+
+        return jsonify({'measurements': measurements_list, 'lft': lft_list})
 
 
-api.add_resource(Measurements, '/measurements')
+api.add_resource(Measurements, '/data')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
