@@ -5,15 +5,20 @@ import pandas as pd
 from datetime import datetime, timedelta
 import tkinter as tk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import math
 
 
-def calculate_rolling_hour_ventilation_rates(
+def calculate_infection_probability_and_ventilation_rates(
     datetimes,
     co2_data,
     number_of_people,
     co2_generation_rate,
     room_volume,
     outdoor_co2_concentration_ppm,
+    pulmonary_ventilation_rate,  # add this parameter
+    time,  # add this parameter
+    number_of_infectors,  # add this parameter
+    infection_quanta=3.33,  # add this parameter
     co2_conversion_factor=1.98,
 ):
     # Calculate constants
@@ -39,7 +44,11 @@ def calculate_rolling_hour_ventilation_rates(
     rolling_hour_df = co2_levels_df.rolling('1H', min_periods=2)
     ventilation_rates = rolling_hour_df.apply(calculate_ventilation_rate, args=(room_volume, emission_rate, outdoor_co2_concentration))
 
-    return ventilation_rates
+    # Calculate the probability of infection for the latest ventilation rate (Q)
+    latest_ventilation_rate = ventilation_rates.iloc[-1]
+    probability_of_infection = 1 - math.exp(-number_of_infectors * infection_quanta * pulmonary_ventilation_rate * time / latest_ventilation_rate)
+
+    return probability_of_infection, ventilation_rates
 
 
 def fetch_data():
@@ -64,14 +73,18 @@ def fetch_data():
 def update_data():
     datetimes, co2, temperature, humidity = fetch_data()
 
-    # Calculate ventilation rates
-    ventilation_rates = calculate_rolling_hour_ventilation_rates(
+    # Calculate infection probability and ventilation rates
+    probability_of_infection, ventilation_rates = calculate_infection_probability_and_ventilation_rates(
         datetimes=datetimes,
         co2_data=co2,
         number_of_people=1,
         co2_generation_rate=28.6,
         room_volume=36,
         outdoor_co2_concentration_ppm=450,
+        pulmonary_ventilation_rate=6,
+        time=1,
+        number_of_infectors=1,
+        infection_quanta=3.33,
     )
 
     # Update plots
@@ -87,6 +100,7 @@ def update_data():
     current_temp.config(text=f"Current Temperature: {round(temperature[-1], 1)} °C")
     current_humidity.config(text=f"Current Humidity: {round(humidity[-1], 1)} %")
     current_ventilation_rate.config(text=f"Current Ventilation Rate: {round(ventilation_rates.iloc[-1], 1)} m³/h")
+    current_probability_of_infection.config(text=f"Probability of Infection: {round(probability_of_infection * 100, 2)} %")  # Add this line
 
     # Redraw the canvas
     canvas.draw()
@@ -136,6 +150,8 @@ current_humidity = tk.Label(side_panel, font=("Arial", 14))
 current_humidity.pack(pady=10)
 current_ventilation_rate = tk.Label(side_panel, font=("Arial", 14))
 current_ventilation_rate.pack(pady=10)
+current_probability_of_infection = tk.Label(side_panel, font=("Arial", 14))
+current_probability_of_infection.pack(pady=10)
 
 # Add a quit button to the tkinter window
 quit_button = tk.Button(master=root, text="Quit", command=root.quit)
@@ -146,3 +162,4 @@ update_data()
 
 # Run the tkinter main loop
 tk.mainloop()
+
