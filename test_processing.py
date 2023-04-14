@@ -1,3 +1,4 @@
+import time
 import cv2
 from PIL import Image
 import sqlite3
@@ -22,7 +23,7 @@ cursor = conn.cursor()
 
 # Create a table if it doesn't exist
 cursor.execute('''CREATE TABLE IF NOT EXISTS lft (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    datetime TEXT,
                     qr_code TEXT,
                     outcome TEXT,
                     control_magenta REAL,
@@ -69,9 +70,12 @@ while True:
             print(f"Control magenta percentage: {control_max_magenta:.2f}%")
             print(f"Test magenta percentage: {test_max_magenta:.2f}%")
 
+            # Get the current date and time to the second
+            date_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
+
             # Save the outcome to the database
             cursor.execute('''INSERT INTO lft (qr_code, outcome, control_magenta, test_magenta)
-                              VALUES (?, ?, ?, ?)''', (decoded_qr_codes, outcome, control_max_magenta, test_max_magenta))
+                              VALUES (?, ?, ?, ?, ?)''', (date_time, decoded_qr_codes, outcome, control_max_magenta, test_max_magenta))
             conn.commit()
 
             cv2.imwrite(f'{str(decoded_qr_codes)}.jpg', frame)

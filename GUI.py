@@ -15,10 +15,10 @@ def calculate_infection_probability_and_ventilation_rates(
     co2_generation_rate,
     room_volume,
     outdoor_co2_concentration_ppm,
-    pulmonary_ventilation_rate,  # add this parameter
-    time,  # add this parameter
-    number_of_infectors,  # add this parameter
-    infection_quanta=3.33,  # add this parameter
+    pulmonary_ventilation_rate,
+    time,
+    number_of_infectors,
+    infection_quanta=3.33,
     co2_conversion_factor=1.98,
 ):
     # Calculate constants
@@ -41,8 +41,12 @@ def calculate_infection_probability_and_ventilation_rates(
     co2_levels_df['co2'] = co2_levels_df['co2'] * co2_conversion_factor
 
     # Calculate ventilation rate (Q) for a rolling hour
-    rolling_hour_df = co2_levels_df.rolling('1H', min_periods=2)
-    ventilation_rates = rolling_hour_df.apply(calculate_ventilation_rate, args=(room_volume, emission_rate, outdoor_co2_concentration))
+    # rolling_hour_df = co2_levels_df.rolling('1H', min_periods=2)
+    # ventilation_rates = rolling_hour_df.apply(calculate_ventilation_rate, args=(room_volume, emission_rate, outdoor_co2_concentration))
+
+    # Calculate ventilation rate (Q) for a rolling 20 minutes
+    rolling_20_minutes_df = co2_levels_df.rolling('20T', min_periods=2)  # Change '1H' to '20T'
+    ventilation_rates = rolling_20_minutes_df.apply(calculate_ventilation_rate, args=(room_volume, emission_rate, outdoor_co2_concentration))
 
     # Calculate the probability of infection for the latest ventilation rate (Q)
     latest_ventilation_rate = ventilation_rates.iloc[-1]
@@ -53,25 +57,32 @@ def calculate_infection_probability_and_ventilation_rates(
 
 def fetch_data():
     # Get the data from the API
-    response = requests.get("http://192.168.1.143:5000/measurements")
+    response = requests.get("http://192.168.1.143:5000/data")
     data = response.json()
 
-    # Process the data
+    # Process the measurements data
     now = datetime.now()
     cutoff_time = now - timedelta(hours=12)
 
-    data = [d for d in data if datetime.strptime(d['datetime'], "%Y-%m-%d %H:%M:%S") >= cutoff_time]
+    measurements_data = data["measurements"]
+    measurements_data = [d for d in measurements_data if datetime.strptime(d['datetime'], "%Y-%m-%d %H:%M:%S") >= cutoff_time]
 
-    datetimes = [datetime.strptime(d['datetime'], "%Y-%m-%d %H:%M:%S") for d in data]
-    co2 = [d['co2'] for d in data]
-    temperature = [d['temperature'] for d in data]
-    humidity = [d['humidity'] for d in data]
+    datetimes = [datetime.strptime(d['datetime'], "%Y-%m-%d %H:%M:%S") for d in measurements_data]
+    co2 = [d['co2'] for d in measurements_data]
+    temperature = [d['temperature'] for d in measurements_data]
+    humidity = [d['humidity'] for d in measurements_data]
 
-    return datetimes, co2, temperature, humidity
+    # Process the lft data
+    lft_data = data["lft"]
+    lft_outcomes = [d["outcome"] for d in lft_data if datetime.strptime(d['datetime'], "%Y-%m-%d %H:%M:%S") >= now - timedelta(hours=1)]
 
+    return datetimes, co2, temperature, humidity, lft_outcomes
 
 def update_data():
-    datetimes, co2, temperature, humidity = fetch_data()
+    datetimes, co2, temperature, humidity, lft_outcomes = fetch_data()
+
+    # Calculate the number of infectors in the past rolling hour
+    number_of_infectors = np.sum(np.array(lft_outcomes) == "Positive")
 
     # Calculate infection probability and ventilation rates
     probability_of_infection, ventilation_rates = calculate_infection_probability_and_ventilation_rates(
@@ -83,7 +94,7 @@ def update_data():
         outdoor_co2_concentration_ppm=450,
         pulmonary_ventilation_rate=6,
         time=1,
-        number_of_infectors=1,
+        number_of_infectors=number_of_infectors,
         infection_quanta=3.33,
     )
 

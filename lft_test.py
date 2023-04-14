@@ -1,4 +1,5 @@
 import sqlite3
+import time
 
 
 def update_lft_table(qr_code, outcome, control_magenta, test_magenta):
@@ -8,16 +9,19 @@ def update_lft_table(qr_code, outcome, control_magenta, test_magenta):
 
     # Create a table if it doesn't exist
     cursor.execute('''CREATE TABLE IF NOT EXISTS lft (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        datetime TEXT,
                         qr_code TEXT,
                         outcome TEXT,
                         control_magenta REAL,
                         test_magenta REAL
                     )''')
 
+    # Get the current date and time to the second
+    date_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
+
     # Save the outcome to the database
     cursor.execute('''INSERT INTO lft (qr_code, outcome, control_magenta, test_magenta)
-                      VALUES (?, ?, ?, ?)''', (qr_code, outcome, control_magenta, test_magenta))
+                      VALUES (?, ?, ?, ?, ?)''', (date_time, qr_code, outcome, control_magenta, test_magenta))
     conn.commit()
 
     # Close the database connection
