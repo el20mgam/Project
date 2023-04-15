@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import tkinter as tk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import math
+import numpy as np
 
 
 def calculate_infection_probability_and_ventilation_rates(
@@ -52,7 +53,7 @@ def calculate_infection_probability_and_ventilation_rates(
     latest_ventilation_rate = ventilation_rates.iloc[-1]
     probability_of_infection = 1 - math.exp(-number_of_infectors * infection_quanta * pulmonary_ventilation_rate * time / latest_ventilation_rate)
 
-    return probability_of_infection, ventilation_rates
+    return probability_of_infection
 
 
 def fetch_data():
@@ -78,22 +79,27 @@ def fetch_data():
 
     return datetimes, co2, temperature, humidity, lft_outcomes
 
+
 def update_data():
     datetimes, co2, temperature, humidity, lft_outcomes = fetch_data()
 
     # Calculate the number of infectors in the past rolling hour
     number_of_infectors = np.sum(np.array(lft_outcomes) == "Positive")
 
+    # Get the number_of_people and room_volume from the Scale widgets
+    number_of_people = number_of_people_scale.get()
+    room_volume = room_volume_scale.get()
+
     # Calculate infection probability and ventilation rates
-    probability_of_infection, ventilation_rates = calculate_infection_probability_and_ventilation_rates(
+    probability_of_infection = calculate_infection_probability_and_ventilation_rates(
         datetimes=datetimes,
         co2_data=co2,
-        number_of_people=1,
+        number_of_people=number_of_people,
         co2_generation_rate=28.6,
-        room_volume=36,
+        room_volume=room_volume,
         outdoor_co2_concentration_ppm=450,
         pulmonary_ventilation_rate=6,
-        time=1,
+        time=0.33,
         number_of_infectors=number_of_infectors,
         infection_quanta=3.33,
     )
@@ -110,7 +116,6 @@ def update_data():
     current_co2.config(text=f"Current CO2: {round(co2[-1], 1)} ppm")
     current_temp.config(text=f"Current Temperature: {round(temperature[-1], 1)} °C")
     current_humidity.config(text=f"Current Humidity: {round(humidity[-1], 1)} %")
-    current_ventilation_rate.config(text=f"Current Ventilation Rate: {round(ventilation_rates.iloc[-1], 1)} m³/h")
     current_probability_of_infection.config(text=f"Probability of Infection: {round(probability_of_infection * 100, 2)} %")  # Add this line
 
     # Redraw the canvas
@@ -152,6 +157,19 @@ canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
 side_panel = tk.Frame(root)
 side_panel.pack(side=tk.RIGHT, fill=tk.BOTH)
 
+# Add two Scale widgets to the side panel for number_of_people and room_volume
+number_of_people_label = tk.Label(side_panel, text="Number of people:", font=("Arial", 14))
+number_of_people_label.pack(pady=10)
+number_of_people_scale = tk.Scale(side_panel, from_=1, to=50, orient=tk.HORIZONTAL)
+number_of_people_scale.set(1)  # Set default value to 1
+number_of_people_scale.pack(pady=10)
+
+room_volume_label = tk.Label(side_panel, text="Room volume (m³):", font=("Arial", 14))
+room_volume_label.pack(pady=10)
+room_volume_scale = tk.Scale(side_panel, from_=1, to=500, orient=tk.HORIZONTAL)
+room_volume_scale.set(36)  # Set default value to 36
+room_volume_scale.pack(pady=10)
+
 # Display current values
 current_co2 = tk.Label(side_panel, font=("Arial", 14))
 current_co2.pack(pady=10)
@@ -159,8 +177,6 @@ current_temp = tk.Label(side_panel, font=("Arial", 14))
 current_temp.pack(pady=10)
 current_humidity = tk.Label(side_panel, font=("Arial", 14))
 current_humidity.pack(pady=10)
-current_ventilation_rate = tk.Label(side_panel, font=("Arial", 14))
-current_ventilation_rate.pack(pady=10)
 current_probability_of_infection = tk.Label(side_panel, font=("Arial", 14))
 current_probability_of_infection.pack(pady=10)
 

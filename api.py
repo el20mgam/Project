@@ -26,7 +26,7 @@ class Measurements(Resource):
         lft_list = []
         for row in lft_data:
             lft_list.append(
-                {'id': row[0], 'qr_code': row[1], 'outcome': row[2], 'control_magenta': row[3], 'test_magenta': row[4]})
+                {'datetime': row[0], 'qr_code': row[1], 'outcome': row[2], 'control_magenta': row[3], 'test_magenta': row[4]})
 
         return jsonify({'measurements': measurements_list, 'lft': lft_list})
 
