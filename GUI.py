@@ -28,7 +28,7 @@ def calculate_infection_probability_and_ventilation_rates(
 
     # Function to calculate ventilation rate (Q)
     def calculate_ventilation_rate(df, room_volume, emission_rate, outdoor_co2_concentration):
-        delta_time = (df.index[-1] - df.index[0]).seconds / 3600  # Time difference in hours
+        delta_time = (df.index[-1] - df.index[0]).seconds / 3600
         delta_co2 = df.iloc[-1] - df.iloc[0]
         dC_dt = delta_co2 / delta_time
         Q = (room_volume * dC_dt + emission_rate) / (outdoor_co2_concentration - df.mean())
@@ -56,17 +56,14 @@ def calculate_infection_probability_and_ventilation_rates(
     return probability_of_infection
 
 
-def fetch_data():
+def fetch_data(start_datetime, end_datetime):
     # Get the data from the API
-    response = requests.get("http://192.168.1.143:5000/data")
+    response = requests.get("http://192.168.0.107:5000/data")
     data = response.json()
 
     # Process the measurements data
-    now = datetime.now()
-    cutoff_time = now - timedelta(hours=12)
-
     measurements_data = data["measurements"]
-    measurements_data = [d for d in measurements_data if datetime.strptime(d['datetime'], "%Y-%m-%d %H:%M:%S") >= cutoff_time]
+    measurements_data = [d for d in measurements_data if start_datetime <= datetime.strptime(d['datetime'], "%Y-%m-%d %H:%M:%S") <= end_datetime]
 
     datetimes = [datetime.strptime(d['datetime'], "%Y-%m-%d %H:%M:%S") for d in measurements_data]
     co2 = [d['co2'] for d in measurements_data]
@@ -75,13 +72,17 @@ def fetch_data():
 
     # Process the lft data
     lft_data = data["lft"]
-    lft_outcomes = [d["outcome"] for d in lft_data if datetime.strptime(d['datetime'], "%Y-%m-%d %H:%M:%S") >= now - timedelta(hours=1)]
+    lft_outcomes = [d["outcome"] for d in lft_data if start_datetime <= datetime.strptime(d['datetime'], "%Y-%m-%d %H:%M:%S") <= end_datetime]
 
     return datetimes, co2, temperature, humidity, lft_outcomes
 
 
-def update_data():
-    datetimes, co2, temperature, humidity, lft_outcomes = fetch_data()
+
+def update_data_with_range():
+    start_datetime = datetime.now() - timedelta(hours=start_datetime_scale.get())
+    end_datetime = datetime.now() - timedelta(hours=end_datetime_scale.get())
+
+    datetimes, co2, temperature, humidity, lft_outcomes = fetch_data(start_datetime, end_datetime)
 
     # Calculate the number of infectors in the past rolling hour
     number_of_infectors = np.sum(np.array(lft_outcomes) == "Positive")
@@ -122,7 +123,7 @@ def update_data():
     canvas.draw()
 
     # Schedule the next update
-    root.after(2000, update_data)
+    root.after(2000, update_data_with_range)
 
 
 # Set up the plot
@@ -157,6 +158,18 @@ canvas.get_tk_widget().pack(side=tk.LEFT, fill=tk.BOTH, expand=1)
 side_panel = tk.Frame(root)
 side_panel.pack(side=tk.RIGHT, fill=tk.BOTH)
 
+start_datetime_label = tk.Label(side_panel, text="Start time (hours ago):", font=("Arial", 14))
+start_datetime_label.pack(pady=10)
+start_datetime_scale = tk.Scale(side_panel, from_=0, to=48, orient=tk.HORIZONTAL)
+start_datetime_scale.set(12)  # Set default value to 12 hours ago
+start_datetime_scale.pack(pady=10)
+
+end_datetime_label = tk.Label(side_panel, text="End time (hours ago):", font=("Arial", 14))
+end_datetime_label.pack(pady=10)
+end_datetime_scale = tk.Scale(side_panel, from_=0, to=48, orient=tk.HORIZONTAL)
+end_datetime_scale.set(0)  # Set default value to now (0 hours ago)
+end_datetime_scale.pack(pady=10)
+
 # Add two Scale widgets to the side panel for number_of_people and room_volume
 number_of_people_label = tk.Label(side_panel, text="Number of people:", font=("Arial", 14))
 number_of_people_label.pack(pady=10)
@@ -185,8 +198,7 @@ quit_button = tk.Button(master=root, text="Quit", command=root.quit)
 quit_button.pack(side=tk.BOTTOM)
 
 # Fetch initial data and start the update loop
-update_data()
+update_data_with_range()
 
 # Run the tkinter main loop
 tk.mainloop()
-
