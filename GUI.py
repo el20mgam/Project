@@ -58,7 +58,7 @@ def calculate_infection_probability_and_ventilation_rates(
 
 def fetch_data(start_datetime, end_datetime):
     # Get the data from the API
-    response = requests.get("http://192.168.0.107:5000/data")
+    response = requests.get("http://0.0.0.0:5001/data")
     data = response.json()
 
     # Process the measurements data
