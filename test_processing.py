@@ -4,6 +4,7 @@ from PIL import Image
 import sqlite3
 
 
+# Function to check whether the image contains magenta in the specified region
 def contains_magenta(pil_image, region):
     cmyk_image = pil_image.convert('CMYK')
     max_magenta_percentage = 0
@@ -12,7 +13,7 @@ def contains_magenta(pil_image, region):
             c, m, y, k = cmyk_image.getpixel((x, y))
             magenta_percentage = m / 255 * 100
             max_magenta_percentage = max(max_magenta_percentage, magenta_percentage)
-            if magenta_percentage > 50:
+            if magenta_percentage > 45:
                 return True, max_magenta_percentage
     return False, max_magenta_percentage
 
@@ -53,6 +54,7 @@ while True:
         new_qr_codes = set(decoded_qr_codes) - prev_qr_codes
 
         if new_qr_codes:
+            # Convert the frame to a PIL image and check for magenta in the control and test regions
             pil_image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             magenta_in_control, control_max_magenta = contains_magenta(pil_image, control)
             magenta_in_test, test_max_magenta = contains_magenta(pil_image, test)
@@ -82,6 +84,7 @@ while True:
 
         prev_qr_codes = set(decoded_qr_codes)
 
+    # If there were QR codes in the frame, annotate them on the frame
     if decoded_qr_codes is not None:
         if points is not None:
             for i in range(len(points)):

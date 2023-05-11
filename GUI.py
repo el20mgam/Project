@@ -46,7 +46,7 @@ def calculate_infection_probability_and_ventilation_rates(
     # ventilation_rates = rolling_hour_df.apply(calculate_ventilation_rate, args=(room_volume, emission_rate, outdoor_co2_concentration))
 
     # Calculate ventilation rate (Q) for a rolling 20 minutes
-    rolling_20_minutes_df = co2_levels_df.rolling('20T', min_periods=2)  # Change '1H' to '20T'
+    rolling_20_minutes_df = co2_levels_df.rolling('20T', min_periods=2)
     ventilation_rates = rolling_20_minutes_df.apply(calculate_ventilation_rate, args=(room_volume, emission_rate, outdoor_co2_concentration))
 
     # Calculate the probability of infection for the latest ventilation rate (Q)
@@ -58,7 +58,7 @@ def calculate_infection_probability_and_ventilation_rates(
 
 def fetch_data(start_datetime, end_datetime):
     # Get the data from the API
-    response = requests.get("http://0.0.0.0:5001/data")
+    response = requests.get("http://192.168.0.107:5000/data")
     data = response.json()
 
     # Process the measurements data
@@ -117,7 +117,7 @@ def update_data_with_range():
     current_co2.config(text=f"Current CO2: {round(co2[-1], 1)} ppm")
     current_temp.config(text=f"Current Temperature: {round(temperature[-1], 1)} °C")
     current_humidity.config(text=f"Current Humidity: {round(humidity[-1], 1)} %")
-    current_probability_of_infection.config(text=f"Probability of Infection: {round(probability_of_infection * 100, 2)} %")  # Add this line
+    current_probability_of_infection.config(text=f"Probability of Infection: {round(probability_of_infection * 100, 2)} %")
 
     # Redraw the canvas
     canvas.draw()
@@ -193,7 +193,7 @@ current_humidity.pack(pady=10)
 current_probability_of_infection = tk.Label(side_panel, font=("Arial", 14))
 current_probability_of_infection.pack(pady=10)
 
-# Add a quit button to the tkinter window
+# Add a quit button to the window
 quit_button = tk.Button(master=root, text="Quit", command=root.quit)
 quit_button.pack(side=tk.BOTTOM)
 

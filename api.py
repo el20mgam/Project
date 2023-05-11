@@ -3,10 +3,12 @@ from flask import Flask, request, jsonify
 from flask_restful import Resource, Api
 
 app = Flask(__name__)
+
 api = Api(app)
 
-
+# Function to interact with the SQLite database
 def query_db(query, args=(), one=False):
+    # Connect to the SQLite database
     conn = sqlite3.connect('co2_measurements_IOM.db')
     c = conn.cursor()
     c.execute(query, args)
@@ -14,7 +16,7 @@ def query_db(query, args=(), one=False):
     conn.close()
     return (result[0] if result else None) if one else result
 
-
+# Resource for measurements
 class Measurements(Resource):
     def get(self):
         data = query_db("SELECT * FROM measurements")
@@ -31,7 +33,9 @@ class Measurements(Resource):
         return jsonify({'measurements': measurements_list, 'lft': lft_list})
 
 
+# Add the Measurements resource to the Api object at the '/data' endpoint
 api.add_resource(Measurements, '/data')
 
+# Run the Flask application
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)
